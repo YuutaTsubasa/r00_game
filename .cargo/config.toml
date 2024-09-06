@@ -1,0 +1,13 @@
+[target.wasm32-unknown-emscripten]
+rustflags = [
+    "-C", "link-arg=-sUSE_SDL=2",
+    "-C", "link-arg=-sUSE_SDL_IMAGE=2",
+    "-C", "link-arg=-sUSE_SDL_TTF=2",
+    "-C", "link-arg=-sUSE_SDL_MIXER=2",
+    "-C", "link-arg=-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\"]",
+    "-C", "link-arg=-sSDL2_MIXER_FORMATS=[\"mp3\",\"wav\"]",
+    "-C", "link-arg=-sMIN_WEBGL_VERSION=2",
+    "-C", "link-arg=-sMAX_WEBGL_VERSION=2",
+    "-C", "link-arg=-sOFFSCREEN_FRAMEBUFFER=1",
+    "-C", "link-arg=--embed-file", "-C", "link-arg=resources",
+]

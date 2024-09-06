@@ -1,0 +1,10 @@
+[package]
+name = "r00_avg_game"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+sdl2 = {version = "0.37.0", features = ["image", "ttf", "mixer"] }
+gl = "0.14.0"
+emscripten_main_loop = "0.1.1"
