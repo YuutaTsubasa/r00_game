@@ -6,11 +6,19 @@
     <title>AVG Game</title>
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    <script>
-        Module = {};
-        Module.canvas = document.getElementById('canvas');
-    </script>
-    <script src="r00_avg_game.js"></script>
+<canvas id="canvas"></canvas>
+<script>
+    Module = {};
+    Module.canvas = document.getElementById('canvas');
+    document.body.addEventListener("click", function(){
+        if (typeof Module._start_music === "function") {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            audioContext.resume().then(() => {
+                Module.music = Module._start_music();
+            });
+        }
+    })
+</script>
+<script src="r00_avg_game.js"></script>
 </body>
 </html>

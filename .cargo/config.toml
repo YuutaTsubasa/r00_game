@@ -9,5 +9,6 @@ rustflags = [
     "-C", "link-arg=-sMIN_WEBGL_VERSION=2",
     "-C", "link-arg=-sMAX_WEBGL_VERSION=2",
     "-C", "link-arg=-sOFFSCREEN_FRAMEBUFFER=1",
+    "-C", "link-arg=-sTOTAL_MEMORY=512MB",
     "-C", "link-arg=--embed-file", "-C", "link-arg=resources",
 ]

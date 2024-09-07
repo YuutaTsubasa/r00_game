@@ -1,4 +1,5 @@
 use std::path::Path;
+use nalgebra_glm::Mat4;
 use crate::engine::component::Component;
 use crate::engine::drawable_component::DrawableComponent;
 use crate::engine::rendering::drawable_object::DrawableObject;
@@ -13,43 +14,41 @@ pub struct Text {
 impl Text {
     pub fn new(
         left_top: (f32, f32),
-        content: String,
+        z_index: f32,
+        content: &String,
+        color: (f32, f32, f32, f32),
         ttf_context: &sdl2::ttf::Sdl2TtfContext,
         font_path: &str,
         font_size: u16,
         vertex_shader: &str,
         fragment_shader: &str) -> Self {
 
-        // 使用 TTF 創建一個字體並生成 Surface
         let font = ttf_context.load_font(Path::new(font_path), font_size).unwrap();
         let surface = font.render(&content)
             .blended(sdl2::pixels::Color::RGBA(255, 255, 255, 255))
             .unwrap();
 
-        // 將 Surface 轉換為 OpenGL 紋理
-        let texture_id = create_texture_from_surface(surface);
+        let text_width = surface.width() as f32;
+        let text_height = surface.height() as f32;
 
-        // 使用固定大小來計算文本的矩形
-        let text_width = content.len() as f32 * font_size as f32 * 0.6;
-        let text_height = font_size as f32;
+        let texture_id = create_texture_from_surface(surface);
 
         let mesh = Mesh {
             vertices: vec![
-                left_top.0, left_top.1, 0.0,  // 左上
-                left_top.0 + text_width, left_top.1, 0.0,  // 右上
-                left_top.0 + text_width, left_top.1 + text_height, 0.0,  // 右下
-                left_top.0, left_top.1 + text_height, 0.0,  // 左下
+                left_top.0, left_top.1, z_index,
+                left_top.0 + text_width, left_top.1, z_index,
+                left_top.0 + text_width, left_top.1 + text_height, z_index,
+                left_top.0, left_top.1 + text_height, z_index,
             ],
             tex_coords: vec![
-                0.0, 0.0,  // 左上
-                1.0, 0.0,  // 右上
-                1.0, 1.0,  // 右下
-                0.0, 1.0,  // 左下
+                0.0, 1.0,
+                1.0, 1.0,
+                1.0, 0.0,
+                0.0, 0.0,
             ],
-            indices: vec![0, 1, 2, 2, 3, 0], // 兩個三角形構成矩形
+            indices: vec![0, 1, 2, 2, 3, 0],
         };
 
-        let color = (1.0, 1.0, 1.0, 1.0);
         let material = Material::new(vec![
             color.0, color.1, color.2, color.3,
             color.0, color.1, color.2, color.3,
@@ -59,12 +58,11 @@ impl Text {
 
         Self {
             drawable: DrawableObject::new(mesh, material),
-            content,
+            content: content.to_string(),
         }
     }
 }
 
-// 將 Surface 轉換為 OpenGL 紋理
 fn create_texture_from_surface(surface: sdl2::surface::Surface) -> u32 {
     let surface = surface.convert_format(sdl2::pixels::PixelFormatEnum::RGBA32).unwrap();
     let width = surface.width();
@@ -107,7 +105,7 @@ impl Component for Text {
 }
 
 impl DrawableComponent for Text {
-    fn draw(&self) {
-        self.drawable.draw();
+    fn draw(&self, projection_matrix: Mat4) {
+        self.drawable.draw(projection_matrix);
     }
 }

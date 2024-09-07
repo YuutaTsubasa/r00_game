@@ -1,3 +1,4 @@
+use nalgebra_glm::Mat4;
 use sdl2::image::LoadSurface;
 use crate::engine::drawable_component::DrawableComponent;
 use crate::engine::component::Component;
@@ -5,31 +6,32 @@ use crate::engine::rendering::mesh::Mesh;
 use crate::engine::rendering::material::Material;
 use crate::engine::rendering::drawable_object::DrawableObject;
 
-pub struct ImagePlane {
+pub struct Plane {
     drawable: DrawableObject
 }
 
-impl ImagePlane {
-    pub fn new(
+impl Plane {
+    pub fn new_from_image(
         rect: (f32, f32, f32, f32),
+        z_index: f32,
         color: (f32, f32, f32, f32),
-        image_path: Option<&str>,
+        image_path: Option<&String>,
         vertex_shader: &str,
         fragment_shader: &str) -> Self {
         let mesh = Mesh {
             vertices: vec![
-                rect.0, rect.1, 0.0,
-                rect.0 + rect.2, rect.1, 0.0,
-                rect.0 + rect.2, rect.1 + rect.3, 0.0,
-                rect.0, rect.1 + rect.3, 0.0,
+                rect.0, rect.1, z_index,
+                rect.0 + rect.2, rect.1, z_index,
+                rect.0 + rect.2, rect.1 + rect.3, z_index,
+                rect.0, rect.1 + rect.3, z_index,
             ],
             tex_coords: vec![
-                0.0, 0.0,  // 左上
-                1.0, 0.0,  // 右上
-                1.0, 1.0,  // 右下
-                0.0, 1.0,  // 左下
+                0.0, 1.0,
+                1.0, 1.0,
+                1.0, 0.0,
+                0.0, 0.0,
             ],
-            indices: vec![0, 1, 2, 2, 3, 0], // 兩個三角形構成矩形
+            indices: vec![0, 1, 2, 2, 3, 0],
         };
 
         let texture_id = image_path.map(load_texture_from_image);
@@ -49,7 +51,7 @@ impl ImagePlane {
     }
 }
 
-fn load_texture_from_image(image_path: &str) -> u32 {
+fn load_texture_from_image(image_path: &String) -> u32 {
     let surface = sdl2::surface::Surface::from_file(image_path).unwrap();
     let surface = surface.convert_format(sdl2::pixels::PixelFormatEnum::RGBA32).unwrap();
     let width = surface.width();
@@ -81,7 +83,7 @@ fn load_texture_from_image(image_path: &str) -> u32 {
     texture_id
 }
 
-impl Component for ImagePlane {
+impl Component for Plane {
     fn update(&mut self) { /* Empty */ }
 
     fn as_drawable(&self) -> Option<&dyn DrawableComponent> {
@@ -89,8 +91,8 @@ impl Component for ImagePlane {
     }
 }
 
-impl DrawableComponent for ImagePlane {
-    fn draw(&self) {
-        self.drawable.draw();
+impl DrawableComponent for Plane {
+    fn draw(&self, projection_matrix: Mat4) {
+        self.drawable.draw(projection_matrix);
     }
 }

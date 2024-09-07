@@ -1,2 +1,3 @@
-pub(crate) mod image_plane;
+pub(crate) mod plane;
 pub(crate) mod text;
+pub(crate) mod generator;
