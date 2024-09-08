@@ -113,7 +113,8 @@ impl DrawableObject {
             gl::BindVertexArray(self.vao);
 
             gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.material.texture_id.unwrap());
+
+            gl::BindTexture(gl::TEXTURE_2D, self.material.texture_id.unwrap_or(0));
 
             let uniform_location = unsafe {
                 gl::GetUniformLocation(self.material.shader_program, "uProjection\0".as_ptr() as *const i8)

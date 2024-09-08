@@ -35,8 +35,8 @@ fn update_viewport(window_width: i32, window_height: i32) {
 
 pub struct Game {
     title: String,
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
     current_scene: Option<Rc<RefCell<dyn Scene>>>,
     pub drawable_generator: DrawableGenerator,
     pub audio_manager: AudioManager<'static>,
@@ -130,21 +130,13 @@ impl Game {
             impl MainLoop for EngineLoop {
                 fn main_loop(&mut self) -> emscripten_main_loop::MainLoopEvent {
                     let mut game = self.game.borrow_mut();
-                    let mut is_hit = false;
+                    let mut hit_position: Option<(i32, i32)> = None;
                     for event in game.sdl_context.event_pump().unwrap().poll_iter() {
                         match event {
                             sdl2::event::Event::Quit { .. } => return emscripten_main_loop::MainLoopEvent::Terminate,
-                            sdl2::event::Event::FingerDown { .. } => {
+                            sdl2::event::Event::MouseButtonDown { x, y, .. } => {
                                 if game.audio_manager.is_started {
-                                    is_hit = true;
-                                }
-                                else{
-                                    game.audio_manager.start_music();
-                                }
-                            },
-                            sdl2::event::Event::MouseButtonDown { .. } => {
-                                if game.audio_manager.is_started {
-                                    is_hit = true;
+                                    hit_position = Some((x * 1920 / game.width as i32, 1080 - y * 1080 / game.height as i32));
                                 }
                                 else{
                                     game.audio_manager.start_music();
@@ -153,6 +145,8 @@ impl Game {
                             sdl2::event::Event::Window { win_event, .. } => {
                                 if let sdl2::event::WindowEvent::Resized(window_width, window_height) = win_event {
                                     update_viewport(window_width, window_height);
+                                    game.width = window_width as u32;
+                                    game.height = window_height as u32;
                                     game.current_projection_matrix = setup_orthographic_projection();
                                 }
                             }
@@ -160,7 +154,7 @@ impl Game {
                         }
                     }
 
-                    game.update(is_hit);
+                    game.update(hit_position);
                     game.draw();
                     game.window.gl_swap_window();
                     emscripten_main_loop::MainLoopEvent::Continue
@@ -179,19 +173,18 @@ impl Game {
             // Standalone 的遊戲循環
             let mut event_pump = self.sdl_context.event_pump().unwrap();
             'running: loop {
-                let mut is_hit = false;
+                let mut hit_position : Option<(i32, i32)> = None;
                 for event in event_pump.poll_iter() {
                     match event {
                         sdl2::event::Event::Quit { .. } => break 'running,
-                        sdl2::event::Event::FingerDown { .. } => {
-                            is_hit = true;
-                        },
-                        sdl2::event::Event::MouseButtonDown { .. } => {
-                            is_hit = true;
+                        sdl2::event::Event::MouseButtonDown { x, y, .. } => {
+                            hit_position = Some((x * 1920 / self.width as i32, 1080 - y * 1080 / self.height as i32));
                         },
                         sdl2::event::Event::Window { win_event, .. } => {
                             if let sdl2::event::WindowEvent::Resized(window_width, window_height) = win_event {
                                 update_viewport(window_width, window_height);
+                                self.width = window_width as u32;
+                                self.height = window_height as u32;
                                 self.current_projection_matrix = setup_orthographic_projection();
                             }
                         },
@@ -199,14 +192,14 @@ impl Game {
                     }
                 }
 
-                self.update(is_hit);
+                self.update(hit_position);
                 self.draw();
                 self.window.gl_swap_window();
             }
         }
     }
 
-    fn update(&mut self, is_hit: bool) {
+    fn update(&mut self, hit_position: Option<(i32, i32)>) {
         #[cfg(target_arch = "wasm32")]
         let current_time = unsafe {
             emscripten_get_now()
@@ -220,7 +213,7 @@ impl Game {
         let delta_time = self.last_updated_time.elapsed().unwrap().as_secs_f32();
 
         if let Some(scene) = self.current_scene.take() {
-            scene.borrow_mut().update(self, delta_time, is_hit);
+            scene.borrow_mut().update(self, delta_time, hit_position);
             self.current_scene = Some(scene);
         }
         self.last_updated_time = current_time;

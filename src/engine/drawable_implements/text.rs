@@ -89,6 +89,15 @@ impl Text {
         ]);
     }
 
+    pub fn set_color(&mut self, color: (f32, f32, f32, f32)) {
+        self.drawable.set_color(vec![
+            color.0, color.1, color.2, color.3,
+            color.0, color.1, color.2, color.3,
+            color.0, color.1, color.2, color.3,
+            color.0, color.1, color.2, color.3,
+        ]);
+    }
+
     pub fn set_range(&mut self,
                      ttf_context: &sdl2::ttf::Sdl2TtfContext,
                      end_range_ratio: f32){
@@ -119,6 +128,13 @@ impl Text {
 
     pub fn get_content_char_indices_count(&self) -> usize {
         self.content.char_indices().count()
+    }
+
+    pub fn contains(&self, position: (f32, f32)) -> bool {
+        position.0 >= self.drawable.mesh.vertices[0] &&
+        position.0 <= self.drawable.mesh.vertices[3] &&
+        position.1 >= self.drawable.mesh.vertices[1] &&
+        position.1 <= self.drawable.mesh.vertices[7]
     }
 }
 

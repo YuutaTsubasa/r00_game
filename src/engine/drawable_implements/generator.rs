@@ -25,7 +25,7 @@ impl DrawableGenerator {
 
     pub fn generate_text(
         &self,
-        left_top: (f32, f32),
+        left_bottom: (f32, f32),
         z_index: f32,
         content: &String,
         end_range_ratio: f32,
@@ -35,7 +35,7 @@ impl DrawableGenerator {
         vertex_shader: &str,
         fragment_shader: &str) -> Text {
         Text::new(
-            left_top,
+            left_bottom,
             z_index,
             content,
             end_range_ratio,

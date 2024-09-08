@@ -15,11 +15,14 @@ const NO_IMAGE : &str = "NO_IMAGE";
 enum Status {
     EnterCurrent,
     Wait,
+    Selection,
+    SelectionWait,
     EndCurrent,
     LoadNext,
 }
 
 pub struct GamePlayScene {
+    current_index: isize,
     next_index: usize,
     avg_items: Vec<AvgItem>,
     status: Status,
@@ -27,18 +30,21 @@ pub struct GamePlayScene {
     center_character_plane: Option<Plane>,
     character_name_plane: Option<Text>,
     content_plane: Option<Text>,
+    selections_texts: Option<Vec<Text>>,
 
     // static
     frame_plane: Option<Plane>,
     no_name_frame_plane: Option<Plane>,
+    selection_background_plane: Option<Plane>,
 
     // debug
-    delta_time: Option<Text>,
+    debug_information_plane: Option<Text>,
 }
 
 impl GamePlayScene {
     pub(crate) fn new(avg_items: Vec<AvgItem>) -> Self {
         Self {
+            current_index: -1,
             next_index: 0,
             avg_items,
             status: Status::LoadNext,
@@ -46,9 +52,11 @@ impl GamePlayScene {
             center_character_plane: None,
             character_name_plane: None,
             content_plane: None,
+            selection_background_plane: None,
+            selections_texts: None,
             frame_plane: None,
             no_name_frame_plane: None,
-            delta_time: None,
+            debug_information_plane: None,
         }
     }
 }
@@ -61,22 +69,29 @@ const IMMEDIATELY_FADE_SPEED : f32 = 10000.0;
 const INPUT_SPEED_PER_SECOND: f32 = 10.0;
 const IMMEDIATELY_INPUT_SPEED : f32 = 10000.0;
 const EMPTY_STRING: &str = "";
+const CONFIRM_SOUND_FILE_PATH: &str = "resources/musics/confirm.mp3";
 
 
 impl Scene for GamePlayScene {
-    fn update(&mut self, game: &mut Game, delta_time: f32, is_hit: bool) {
+    fn update(&mut self, game: &mut Game, delta_time: f32, hit_position: Option<(i32, i32)>) {
         let empty_string = EMPTY_STRING.to_string();
-        self.delta_time = Some(game.drawable_generator.generate_text(
-            (0.0, 0.0),
-            -0.3,
-            &delta_time.to_string(),
-            1.0,
-            (1.0, 1.0, 0.0, 1.0),
-            FONT_PATH,
-            24,
-            VERTEX_SHADER,
-            FRAGMENT_SHADER
-        ));
+
+        #[cfg(debug_assertions)] {
+            self.debug_information_plane = Some(game.drawable_generator.generate_text(
+                (0.0, 0.0),
+                -0.3,
+                &format!("{}, {}",
+                         delta_time,
+                         hit_position
+                             .map_or_else(|| EMPTY_STRING.to_string(), |hit_position| format!("({}, {})", hit_position.0, hit_position.1))),
+                1.0,
+                (1.0, 1.0, 0.0, 1.0),
+                FONT_PATH,
+                24,
+                VERTEX_SHADER,
+                FRAGMENT_SHADER
+            ));
+        }
 
         if self.frame_plane.is_none() {
             self.frame_plane = Some(game.drawable_generator.generate_plane_from_image(
@@ -100,11 +115,22 @@ impl Scene for GamePlayScene {
             ))
         }
 
+        if self.selection_background_plane.is_none() {
+            self.selection_background_plane = Some(game.drawable_generator.generate_plane_from_image(
+                (0.0, 0.0, 1920.0, 1080.0),
+                -0.4,
+                (0.0, 0.0, 0.0, 0.0),
+                None,
+                VERTEX_SHADER,
+                FRAGMENT_SHADER
+            ))
+        }
+
         let status = self.status;
         match status {
             Status::EnterCurrent => {
-                let fade_speed_per_second = if is_hit { IMMEDIATELY_FADE_SPEED } else { FADE_SPEED_PER_SECOND };
-                let input_speed_per_second = if is_hit { IMMEDIATELY_INPUT_SPEED } else { INPUT_SPEED_PER_SECOND };
+                let fade_speed_per_second = if hit_position.is_some() { IMMEDIATELY_FADE_SPEED } else { FADE_SPEED_PER_SECOND };
+                let input_speed_per_second = if hit_position.is_some() { IMMEDIATELY_INPUT_SPEED } else { INPUT_SPEED_PER_SECOND };
 
                 if let Some(background_plane) = &mut self.background_plane {
                     background_plane.set_alpha(
@@ -136,14 +162,58 @@ impl Scene for GamePlayScene {
                 }
             },
             Status::Wait => {
-                if is_hit {
-                    self.status = Status::EndCurrent;
-                    game.audio_manager.play_sound_one_shot("resources/musics/maou_se_system47.mp3");
+                if hit_position.is_some() {
+                    let avg_item = &self.avg_items[self.current_index as usize];
+                    self.status = if avg_item.selection_items.is_some() { Status::Selection } else { Status::EndCurrent };
+                    game.audio_manager.play_sound_one_shot(CONFIRM_SOUND_FILE_PATH);
+                }
+            },
+            Status::Selection => {
+                if let Some(selection_background_plane) = &mut self.selection_background_plane {
+                    selection_background_plane.set_alpha(0.75);
+                }
+
+                if let Some(selection_items) = &self.avg_items[self.current_index as usize].selection_items {
+                    let selection_items_len = selection_items.len();
+                    let selection_height = 1080.0 / selection_items_len as f32;
+                    let first_bottom = selection_height / 2.0 - 30.0;
+                    self.selections_texts = Some(selection_items
+                        .iter().enumerate().map(|(index, selection_item)| {
+                            game.drawable_generator.generate_text(
+                                (480.0, first_bottom + selection_height * (selection_items_len - index - 1) as f32),
+                                -0.5,
+                                &selection_item.content,
+                                1.0,
+                                (1.0, 1.0, 1.0, 1.0),
+                                FONT_PATH,
+                                60,
+                                VERTEX_SHADER,
+                                FRAGMENT_SHADER)
+                    }).collect::<Vec<_>>());
+                }
+                self.status = Status::SelectionWait;
+            },
+            Status::SelectionWait => {
+                if let Some(hit_position) = hit_position {
+                    if let Some(selection_texts) = &mut self.selections_texts {
+                        let selection_texts_len = selection_texts.len();
+                        let avg_item = &self.avg_items[self.current_index as usize];
+
+                        for index in 0..selection_texts_len {
+                            let mut selection_text = &mut selection_texts[index];
+                            if selection_text.contains((hit_position.0 as f32, hit_position.1 as f32)) {
+                                selection_text.set_color((1.0, 1.0, 0.0, 1.0));
+                                self.next_index = avg_item.selection_items.as_ref().unwrap()[index].next_index as usize;
+                                self.status = Status::EndCurrent;
+                                game.audio_manager.play_sound_one_shot(CONFIRM_SOUND_FILE_PATH);
+                            }
+                        }
+                    }
                 }
             },
             Status::EndCurrent => {
-                let fade_speed_per_second = if is_hit { IMMEDIATELY_FADE_SPEED } else { FADE_SPEED_PER_SECOND };
-                let avg_item = &self.avg_items[self.next_index - 1];
+                let fade_speed_per_second = if hit_position.is_some() { IMMEDIATELY_FADE_SPEED } else { FADE_SPEED_PER_SECOND };
+                let avg_item = &self.avg_items[self.current_index as usize];
                 let next_avg_item = self.avg_items.get(self.next_index);
 
                 let is_change_background = next_avg_item
@@ -188,6 +258,19 @@ impl Scene for GamePlayScene {
                         (content_plane.drawable.material.color[3] - delta_time * fade_speed_per_second).max(0.0));
                 }
 
+                if let Some(selection_background_plane) = &mut self.selection_background_plane {
+                    selection_background_plane.set_alpha(
+                        (selection_background_plane.drawable.material.color[3] - delta_time * fade_speed_per_second).max(0.0));
+                }
+
+                if let Some(selection_texts) = &mut self.selections_texts {
+                    let selection_texts_len = selection_texts.len();
+                    for index in 0..selection_texts_len {
+                        let mut selection_text = &mut selection_texts[index];
+                        selection_text.set_alpha((selection_text.drawable.material.color[3] - delta_time * fade_speed_per_second).max(0.0));
+                    }
+                }
+
                 if self.background_plane.as_ref().map_or(true, |plane| plane.drawable.material.color[3] <= 0.0 || !is_change_background) &&
                     self.center_character_plane.as_ref().map_or(true, |plane| plane.drawable.material.color[3] <= 0.0 || !is_change_left_character) &&
                     self.character_name_plane.as_ref().map_or(true, |plane| plane.drawable.material.color[3] <= 0.0 || !is_change_character_name) &&
@@ -200,7 +283,7 @@ impl Scene for GamePlayScene {
                     return;
                 }
                 let previous_avg_item =
-                    if self.next_index > 0 { &self.avg_items.get(self.next_index - 1) }
+                    if self.current_index >= 0 { &self.avg_items.get(self.current_index as usize) }
                     else { &None };
                 let avg_item = &self.avg_items[self.next_index];
 
@@ -279,8 +362,11 @@ impl Scene for GamePlayScene {
                         )
                     });
 
+                self.selections_texts = None;
+
                 self.status = Status::EnterCurrent;
-                self.next_index = self.next_index + 1;
+                self.current_index = self.next_index as isize;
+                self.next_index = avg_item.next_index.unwrap_or_else(|| (self.next_index + 1) as u32) as usize;
             }
         }
 
@@ -316,7 +402,19 @@ impl Scene for GamePlayScene {
             content_plane.draw(game.current_projection_matrix);
         }
 
-        if let Some(delta_time_text) = &self.delta_time {
+        if self.status == Status::SelectionWait || self.status == Status::EndCurrent {
+            if let Some(selection_background_plane) = &self.selection_background_plane {
+                selection_background_plane.draw(game.current_projection_matrix);
+            }
+
+            if let Some(selection_texts) = &self.selections_texts {
+                for selection_text in selection_texts {
+                    selection_text.draw(game.current_projection_matrix);
+                }
+            }
+        }
+
+        if let Some(delta_time_text) = &self.debug_information_plane {
             delta_time_text.draw(game.current_projection_matrix);
         }
     }
