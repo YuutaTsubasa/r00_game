@@ -11,3 +11,4 @@ nalgebra-glm = "0.19.0"
 emscripten_main_loop = "0.1.1"
 wasm-bindgen = "0.2.93"
 web-sys = { version = "0.3.70", features = ["Window"] }
+web-time = "1.1.0"

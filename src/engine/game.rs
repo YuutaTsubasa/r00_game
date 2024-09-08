@@ -15,7 +15,13 @@ use crate::engine::drawable_implements::generator::DrawableGenerator;
 use super::scene::Scene;
 use glm::Mat4;
 use glm::ortho;
+use std::time::{SystemTime};
 
+
+#[cfg(target_arch = "wasm32")]
+extern "C" {
+    fn emscripten_get_now() -> f64;
+}
 
 fn setup_orthographic_projection() -> Mat4 {
     ortho(0.0, 1920.0, 0.0, 1080.0, 1.0, -1.0)
@@ -40,7 +46,11 @@ pub struct Game {
     sdl_context: Sdl,
     window: Window,
     gl_context: GLContext,
-    sdl2_ttf_context: Rc<Sdl2TtfContext>,
+    pub sdl2_ttf_context: Rc<Sdl2TtfContext>,
+    #[cfg(target_arch = "wasm32")]
+    last_updated_time: f64,
+    #[cfg(not(target_arch = "wasm32"))]
+    last_updated_time: SystemTime,
 }
 
 impl Game {
@@ -52,6 +62,8 @@ impl Game {
         sdl2::mixer::init(InitFlag::MP3).unwrap();
         sdl2::mixer::open_audio(44100, AUDIO_S16LSB, DEFAULT_CHANNELS, 1024).unwrap();
         sdl2::mixer::allocate_channels(4);
+        sdl2::mixer::Music::set_volume(sdl2::mixer::MAX_VOLUME / 2);
+        sdl2::mixer::Channel::all().set_volume(sdl2::mixer::MAX_VOLUME / 2);
         let mut audio_manager = AudioManager::new(is_web);
 
         let window = video_subsystem
@@ -82,6 +94,11 @@ impl Game {
         let drawable_generator = DrawableGenerator::new(Rc::clone(&sdl2_ttf_context));
         let current_projection_matrix = setup_orthographic_projection();
 
+        #[cfg(target_arch = "wasm32")]
+        let current_time = unsafe {
+            emscripten_get_now()
+        };
+
         Self {
             title: title.to_string(),
             width,
@@ -94,6 +111,10 @@ impl Game {
             window,
             gl_context,
             sdl2_ttf_context,
+            #[cfg(target_arch = "wasm32")]
+            last_updated_time: current_time,
+            #[cfg(not(target_arch = "wasm32"))]
+            last_updated_time: SystemTime::now(),
         }
     }
 
@@ -186,10 +207,23 @@ impl Game {
     }
 
     fn update(&mut self, is_hit: bool) {
+        #[cfg(target_arch = "wasm32")]
+        let current_time = unsafe {
+            emscripten_get_now()
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let current_time = SystemTime::now();
+
+        #[cfg(target_arch = "wasm32")]
+        let delta_time = ((current_time - self.last_updated_time) / 1000.0) as f32;
+        #[cfg(not(target_arch = "wasm32"))]
+        let delta_time = self.last_updated_time.elapsed().unwrap().as_secs_f32();
+
         if let Some(scene) = self.current_scene.take() {
-            scene.borrow_mut().update(self, is_hit);
+            scene.borrow_mut().update(self, delta_time, is_hit);
             self.current_scene = Some(scene);
         }
+        self.last_updated_time = current_time;
     }
 
     fn draw(&mut self) {
@@ -206,34 +240,6 @@ impl Game {
     pub fn load_scene(&mut self, scene: Rc<RefCell<dyn Scene>>) {
         self.current_scene = Some(scene);
     }
-
-    // pub fn create_plane_from_image(
-    //     &self,
-    //     rect: (f32, f32, f32, f32),
-    //     z_index: f32,
-    //     color: (f32, f32, f32, f32),
-    //     image_path: Option<&String>,
-    //     vertex_shader: &str,
-    //     fragment_shader: &str) -> Plane {
-    //     self.drawable_generator.generate_plane_from_image(rect, z_index, color, image_path, vertex_shader, fragment_shader)
-    // }
-    //
-    // pub fn create_text(
-    //     &self,
-    //     left_top: (f32, f32),
-    //     z_index: f32,
-    //     content: String,
-    //     font_path: &str,
-    //     font_size: u16,
-    //     vertex_shader: &str,
-    //     fragment_shader: &str) -> Text {
-    //     self.drawable_generator.generate_text(left_top, z_index, content, font_path, font_size, vertex_shader, fragment_shader)
-    // }
-    //
-    // pub fn play_music(&mut self, file_path: &str) {
-    //     self.audio_manager.load_music(file_path);
-    //     self.audio_manager.play_music();
-    // }
 
     pub fn start_music(&mut self){
         self.audio_manager.start_music();

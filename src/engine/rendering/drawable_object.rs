@@ -4,13 +4,54 @@ use super::mesh::Mesh;
 use super::material::Material;
 
 pub struct DrawableObject {
-    mesh: Mesh,
-    material: Material,
+    pub mesh: Mesh,
+    pub material: Material,
     vao: u32,
     vbo: u32,
     cbo: u32,
     tbo: u32,
     ebo: u32,
+}
+
+
+pub fn create_cbo(color: &Vec<f32>) -> u32 {
+    let mut cbo: u32 = 0;
+
+    unsafe {
+        // 顏色緩衝區 (CBO)
+        gl::GenBuffers(1, &mut cbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, cbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (color.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+            color.as_ptr() as *const gl::types::GLvoid,
+            gl::STATIC_DRAW,
+        );
+        gl::VertexAttribPointer(1, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+        gl::EnableVertexAttribArray(1);
+
+        cbo
+    }
+}
+
+pub fn create_vbo(vertices: &Vec<f32>) -> u32 {
+    let mut vbo: u32 = 0;
+
+    unsafe {
+        // 頂點緩衝區 (VBO)
+        gl::GenBuffers(1, &mut vbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+            vertices.as_ptr() as *const gl::types::GLvoid,
+            gl::STATIC_DRAW,
+        );
+        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+        gl::EnableVertexAttribArray(0);
+
+        vbo
+    }
 }
 
 impl DrawableObject {
@@ -26,29 +67,8 @@ impl DrawableObject {
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
 
-            // 頂點緩衝區 (VBO)
-            gl::GenBuffers(1, &mut vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (mesh.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                mesh.vertices.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
-            );
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
-            gl::EnableVertexAttribArray(0);
-
-            // 顏色緩衝區 (CBO)
-            gl::GenBuffers(1, &mut cbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, cbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (material.color.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                material.color.as_ptr() as *const gl::types::GLvoid,
-                gl::STATIC_DRAW,
-            );
-            gl::VertexAttribPointer(1, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
-            gl::EnableVertexAttribArray(1);
+            cbo = create_cbo(&material.color);
+            vbo = create_vbo(&mesh.vertices);
 
             // 紋理緩衝區 (TBO)
             gl::GenBuffers(1, &mut tbo);
@@ -110,6 +130,36 @@ impl DrawableObject {
             gl::BindVertexArray(0);
         }
     }
+
+    pub fn set_color(&mut self, color: Vec<f32>) {
+        self.material.color = color;
+
+        unsafe {
+            gl::DeleteBuffers(1, &self.cbo);
+
+            gl::BindVertexArray(self.vao);
+            self.cbo = create_cbo(&self.material.color);
+            gl::BindVertexArray(0);
+        }
+    }
+
+    pub fn set_vertices(&mut self, vertices: Vec<f32>) {
+        self.mesh.vertices = vertices;
+        unsafe {
+            gl::DeleteBuffers(1, &self.vbo);
+
+            gl::BindVertexArray(self.vao);
+            self.vbo = create_vbo(&self.mesh.vertices);
+            gl::BindVertexArray(0);
+        }
+    }
+
+    pub fn set_texture(&mut self, texture_id: Option<u32>) {
+        unsafe {
+            gl::DeleteTextures(1, &self.material.texture_id.unwrap());
+            self.material.texture_id = texture_id;
+        }
+    }
 }
 
 impl Drop for DrawableObject {
@@ -122,7 +172,6 @@ impl Drop for DrawableObject {
             gl::DeleteBuffers(1, &self.ebo);
             gl::DeleteTextures(1, &self.material.texture_id.unwrap());
         }
-
     }
 }
 

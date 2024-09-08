@@ -7,7 +7,7 @@ use crate::engine::rendering::material::Material;
 use crate::engine::rendering::drawable_object::DrawableObject;
 
 pub struct Plane {
-    drawable: DrawableObject
+    pub drawable: DrawableObject
 }
 
 impl Plane {
@@ -48,6 +48,16 @@ impl Plane {
         Self {
             drawable: DrawableObject::new(mesh, material),
         }
+    }
+
+    pub fn set_alpha(&mut self, alpha: f32) {
+        let color = &self.drawable.material.color;
+        self.drawable.set_color(vec![
+            color[0], color[1], color[2], alpha,
+            color[0], color[1], color[2], alpha,
+            color[0], color[1], color[2], alpha,
+            color[0], color[1], color[2], alpha,
+        ]);
     }
 }
 
