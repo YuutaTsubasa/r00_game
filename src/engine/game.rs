@@ -5,7 +5,6 @@ extern crate emscripten_main_loop;
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
 use sdl2::video::Window;
 use sdl2::Sdl;
 use sdl2::ttf::Sdl2TtfContext;
@@ -58,12 +57,6 @@ impl Game {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
-        // 初始化音頻系統
-        sdl2::mixer::init(InitFlag::MP3).unwrap();
-        sdl2::mixer::open_audio(44100, AUDIO_S16LSB, DEFAULT_CHANNELS, 1024).unwrap();
-        sdl2::mixer::allocate_channels(4);
-        sdl2::mixer::Music::set_volume(sdl2::mixer::MAX_VOLUME / 2);
-        sdl2::mixer::Channel::all().set_volume(sdl2::mixer::MAX_VOLUME / 2);
         let mut audio_manager = AudioManager::new(is_web);
 
         let window = video_subsystem

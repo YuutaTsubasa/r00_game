@@ -192,6 +192,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
+name = "openal"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76b816b719df333083f8a4584fa62d00e8d0a2326e72f57f1e86e44d292a8b48"
+dependencies = [
+ "libc",
+ "openal-sys",
+]
+
+[[package]]
+name = "openal-sys"
+version = "1.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b521c35ac1eed54f0c97f88739aa61d29991ceff3b626af62d33607dbb47e01f"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -222,6 +241,7 @@ dependencies = [
  "emscripten_main_loop",
  "gl",
  "nalgebra-glm",
+ "openal",
  "sdl2",
  "wasm-bindgen",
  "web-sys",

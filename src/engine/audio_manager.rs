@@ -1,4 +1,4 @@
-use sdl2::mixer::{Chunk, Music};
+use sdl2::mixer::{Chunk, InitFlag, Music, AUDIO_S16LSB, DEFAULT_CHANNELS};
 
 pub struct AudioManager<'a> {
     current_music: Option<Music<'a>>,
@@ -8,6 +8,12 @@ pub struct AudioManager<'a> {
 
 impl<'a> AudioManager<'a> {
     pub fn new(is_web: bool) -> Self {
+        sdl2::mixer::init(InitFlag::MP3).unwrap();
+        sdl2::mixer::open_audio(44100, AUDIO_S16LSB, DEFAULT_CHANNELS, 1024).unwrap();
+        sdl2::mixer::allocate_channels(4);
+        sdl2::mixer::Music::set_volume(sdl2::mixer::MAX_VOLUME / 2);
+        sdl2::mixer::Channel::all().set_volume(sdl2::mixer::MAX_VOLUME / 2);
+
         Self {
             current_music: None,
             current_sound: None,
